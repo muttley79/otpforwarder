@@ -13,10 +13,15 @@ object OtpParser {
     private val currencyAfter = Regex("""^\s*(%|₪|\$|€|nis|usd|eur|ש"ח|שקל)""", RegexOption.IGNORE_CASE)
     private val currencyBefore = Regex("""[₪$€]\s*$""")
 
-    fun parse(body: String): String? {
+    /**
+     * [extraKeywords] are words the owner wrote into a matching rule ("Message contains"). They count as code keywords too,
+     * so a rule on a word like "trial" works without the message also saying "code".
+     */
+    fun parse(body: String, extraKeywords: List<String> = emptyList()): String? {
         val text = spacedGroups.replace(body) { it.groupValues[1] + it.groupValues[2] }
         val lower = text.lowercase()
-        val keywordPositions = keywords.flatMap { k ->
+        val allKeywords = keywords + extraKeywords.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        val keywordPositions = allKeywords.flatMap { k ->
             Regex(Regex.escape(k)).findAll(lower).map { it.range.first }.toList()
         }
         if (keywordPositions.isEmpty()) return null

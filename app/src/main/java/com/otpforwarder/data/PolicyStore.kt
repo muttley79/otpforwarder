@@ -23,6 +23,7 @@ object PolicyStore {
                     id = o.getString("id"),
                     sender = o.optString("sender").ifBlank { null },
                     textContains = o.optString("text").ifBlank { null },
+                    label = o.optString("label").ifBlank { null },
                     pairingIds = o.getJSONArray("to").let { a -> (0 until a.length()).map { a.getString(it) }.toSet() },
                 )
             }
@@ -33,18 +34,19 @@ object PolicyStore {
         val arr = JSONArray()
         rules.forEach {
             arr.put(
-                JSONObject().put("id", it.id).put("sender", it.sender ?: "").put("text", it.textContains ?: "")
+                JSONObject().put("id", it.id).put("sender", it.sender ?: "").put("text", it.textContains ?: "").put("label", it.label ?: "")
                     .put("to", JSONArray(it.pairingIds.toList()))
             )
         }
         sp(c).edit().putString("rules", arr.toString()).apply()
     }
 
-    fun addRule(c: Context, sender: String?, text: String?, pairingIds: Set<String>) {
+    fun addRule(c: Context, sender: String?, label: String?, text: String?, pairingIds: Set<String>) {
         val s = sender?.trim()?.ifBlank { null }
         val t = text?.trim()?.ifBlank { null }
         if ((s == null && t == null) || pairingIds.isEmpty()) return
-        save(c, rules(c) + Rule(UUID.randomUUID().toString(), s, t, pairingIds))
+        val l = if (s != null) label?.trim()?.ifBlank { null } else null
+        save(c, rules(c) + Rule(UUID.randomUUID().toString(), s, t, pairingIds, l))
     }
 
     fun removeRule(c: Context, id: String) = save(c, rules(c).filterNot { it.id == id })

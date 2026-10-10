@@ -1,5 +1,14 @@
 package com.otpforwarder.ui
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -43,7 +52,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.otpforwarder.data.Cloud
+import com.otpforwarder.data.ForwardingPrefs
 import com.otpforwarder.data.InvitePreview
+import com.otpforwarder.delivery.ListenerService
+import androidx.compose.material3.Switch
 import com.otpforwarder.delivery.Inbox
 import com.otpforwarder.delivery.RecipientSync
 import com.otpforwarder.ui.theme.CodeStyle
@@ -68,12 +80,22 @@ fun RecipientTab(pendingInvite: String?, onInviteHandled: () -> Unit) {
     var copiedId by remember { mutableStateOf<String?>(null) }
     val owners = pairings.filter { it.active }
     val hero = heroColors()
+    var listening by remember { mutableStateOf(ForwardingPrefs.listening(ctx)) }
 
     fun load(raw: String) = scope.launch {
         try {
             preview = Cloud.previewInvite(inviteId(raw))
             err = if (preview == null) "That invitation is invalid, expired or already used. Ask for a new one." else null
         } catch (e: Exception) { err = e.message }
+    }
+
+    // A recipient has to be told when a code arrives, so ask for notification permission as soon as someone is sharing with them.
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val notificationsOn = NotificationManagerCompat.from(ctx).areNotificationsEnabled()
+    LaunchedEffect(owners.isNotEmpty()) {
+        if (owners.isNotEmpty() && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     LaunchedEffect(pendingInvite) { if (pendingInvite != null) { load(pendingInvite); onInviteHandled() } }
@@ -84,6 +106,42 @@ fun RecipientTab(pendingInvite: String?, onInviteHandled: () -> Unit) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
         ScreenTitle("Inbox", "Codes people have shared with you.")
+
+        if (owners.isNotEmpty() && !notificationsOn) {
+            SoftCard(Modifier.padding(bottom = 12.dp), container = MaterialTheme.colorScheme.tertiaryContainer) {
+                Text(
+                    "Notifications are off, so you won't be told when a code arrives.",
+                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Button(onClick = {
+                    ctx.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                    )
+                }) { Text("Turn on notifications") }
+            }
+        }
+
+        if (owners.isNotEmpty()) {
+            SoftCard(Modifier.padding(bottom = 12.dp)) {
+                SpaceRow {
+                    RowLabel(
+                        "Get new codes automatically",
+                        if (listening) "On. A notification stays visible while the app listens." else "Off. Tap Check now to look for codes.",
+                        Modifier.weight(1f),
+                    )
+                    Switch(listening, { on ->
+                        listening = on
+                        ForwardingPrefs.setListening(ctx, on)
+                        if (on) ListenerService.start(ctx) else ListenerService.stop(ctx)
+                    })
+                }
+                if (listening) {
+                    TextButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) {
+                        Text("Keep it reliable: battery settings")
+                    }
+                }
+            }
+        }
 
         // ---- codes: the code is the hero, set large and grouped for reading aloud ----
         items.forEach { i ->
@@ -167,7 +225,11 @@ fun RecipientTab(pendingInvite: String?, onInviteHandled: () -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = {
                                 scope.launch {
-                                    try { Cloud.acceptInvite(ctx, p); preview = null; code = ""; err = null } catch (e: Exception) { err = e.message }
+                                    try {
+                                        Cloud.acceptInvite(ctx, p); preview = null; code = ""; err = null
+                                        // Joining means wanting the codes: start listening right away (can be switched off).
+                                        ForwardingPrefs.setListening(ctx, true); listening = true; ListenerService.start(ctx)
+                                    } catch (e: Exception) { err = e.message }
                                 }
                             }) { Text("Accept") }
                             OutlinedButton(onClick = { preview = null }) { Text("Decline") }

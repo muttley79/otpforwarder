@@ -18,6 +18,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import com.otpforwarder.capture.ForwardingService
 import com.otpforwarder.data.ForwardingPrefs
+import com.otpforwarder.delivery.ListenerService
 import com.otpforwarder.data.ThemeMode
 import com.otpforwarder.data.ThemePrefs
 import com.otpforwarder.ui.AppRoot
@@ -27,6 +28,7 @@ import com.otpforwarder.ui.theme.OtpTheme
 class MainActivity : ComponentActivity() {
     private var pendingInvite by mutableStateOf<String?>(null)
     private var themeMode by mutableStateOf(ThemeMode.SYSTEM)
+    private var requestedTab by mutableStateOf<Int?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Hold the splash just long enough for the lamp to finish lighting; it is the app's only launch animation.
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
         themeMode = ThemePrefs.get(this)
         readInvite(intent)
         if (ForwardingPrefs.enabled(this)) ForwardingService.start(this)
+        if (ForwardingPrefs.listening(this)) ListenerService.start(this)
         setContent {
             val dark = when (themeMode) {
                 ThemeMode.DARK -> true
@@ -54,6 +57,8 @@ class MainActivity : ComponentActivity() {
                     AppRoot(
                         pendingInvite = pendingInvite,
                         onInviteHandled = { pendingInvite = null },
+                        requestedTab = requestedTab,
+                        onTabHandled = { requestedTab = null },
                         themeMode = themeMode,
                         onThemeMode = { themeMode = it; ThemePrefs.set(this, it) },
                     )
@@ -69,5 +74,13 @@ class MainActivity : ComponentActivity() {
 
     private fun readInvite(i: Intent?) {
         i?.dataString?.takeIf { it.startsWith(INVITE_SCHEME) }?.let { pendingInvite = it }
+        // A received-code notification asks for the Inbox.
+        if (i?.hasExtra(EXTRA_TAB) == true) requestedTab = i.getIntExtra(EXTRA_TAB, TAB_SHARING)
+    }
+
+    companion object {
+        const val EXTRA_TAB = "tab"
+        const val TAB_SHARING = 0
+        const val TAB_INBOX = 1
     }
 }

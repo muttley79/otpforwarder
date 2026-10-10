@@ -61,6 +61,19 @@
                 android:value="User-approved forwarding of one-time codes; persistent notification shown while active" />
         </service>
 
+        <receiver
+            android:name=".delivery.CopyCodeReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".delivery.ListenerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Live connection so shared one-time codes arrive instantly; persistent notification shown while active" />
+        </service>
+
         <service
             android:name=".delivery.FcmService"
             android:exported="false">

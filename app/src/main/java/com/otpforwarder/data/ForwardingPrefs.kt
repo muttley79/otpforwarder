@@ -10,6 +10,10 @@ object ForwardingPrefs {
     fun consentAccepted(c: Context) = sp(c).getBoolean("consent", false)
     fun setConsentAccepted(c: Context, v: Boolean) = sp(c).edit().putBoolean("consent", v).apply()
 
+    /** Recipient side: keep a live connection so codes arrive without tapping "Check now". */
+    fun listening(c: Context) = sp(c).getBoolean("listening", false)
+    fun setListening(c: Context, v: Boolean) = sp(c).edit().putBoolean("listening", v).apply()
+
     fun enabled(c: Context) = consentAccepted(c) && sp(c).getBoolean("enabled", false)
     fun setEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("enabled", v).apply()
 }

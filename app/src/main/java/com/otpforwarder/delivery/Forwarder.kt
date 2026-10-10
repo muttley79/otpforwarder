@@ -16,11 +16,15 @@ import org.json.JSONObject
 object Forwarder {
     suspend fun forward(ctx: Context, sms: IncomingSms) {
         if (!ForwardingPrefs.enabled(ctx) || !Cloud.configured(ctx) || Cloud.uid == null) return
-        val code = OtpParser.parse(sms.body) ?: return
+        val config = PolicyStore.config(ctx)
+        // Only messages that satisfy a rule are even considered. A word the owner put in a matching rule counts as a code keyword.
+        val matched = ForwardingPolicy.matchingRules(sms.sender, sms.body, config)
+        if (matched.isEmpty()) return
+        val code = OtpParser.parse(sms.body, matched.mapNotNull { it.textContains }) ?: return
 
         val pairings = Cloud.activePairingsAsOwner()
         val targets = ForwardingPolicy.targets(
-            sms.sender, sms.body, PolicyStore.config(ctx), pairings.map { PolicyPairing(it.id, it.active) }, System.currentTimeMillis(),
+            sms.sender, sms.body, config, pairings.map { PolicyPairing(it.id, it.active) }, System.currentTimeMillis(),
         )
         val payload = JSONObject().put("code", code).put("sender", sms.sender).put("owner", Cloud.myName)
             .put("ts", sms.timestampMs).toString().toByteArray()

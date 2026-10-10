@@ -28,22 +28,32 @@ object Inbox {
 }
 
 object RecipientSync {
-    /** Fetches, decrypts and deletes every pending message addressed to this user. Idempotent. */
+    // The live listener, a push and "Check now" can all see the same message; each one is handled once.
+    private val seen = LinkedHashSet<String>()
+
+    /** Decrypts one message, shows it, and deletes it from the server. Safe to call more than once for the same message. */
+    suspend fun handle(ctx: Context, m: Cloud.Incoming) {
+        synchronized(seen) {
+            if (!seen.add(m.docId)) return
+            if (seen.size > 200) seen.remove(seen.first())
+        }
+        try {
+            val j = JSONObject(String(E2E.decrypt(ctx, m.ciphertext, m.pairingId)))
+            val code = j.getString("code")
+            val sender = j.optString("sender")
+            val owner = j.optString("owner").ifBlank { null }
+            Inbox.add(InboxItem(m.docId, code, sender, owner, System.currentTimeMillis()))
+            Notifier.received(ctx, owner, code, Inbox.TTL_MS)
+        } catch (e: Exception) {
+            Log.w("RecipientSync", "could not decrypt ${m.docId}", e)
+        } finally {
+            runCatching { Cloud.deleteMessage(m.docId) }
+        }
+    }
+
+    /** Fetches every pending message addressed to this user. Idempotent. */
     suspend fun pull(ctx: Context) {
         if (!Cloud.configured(ctx) || Cloud.uid == null) return
-        for (m in Cloud.pendingMessages()) {
-            try {
-                val j = JSONObject(String(E2E.decrypt(ctx, m.ciphertext, m.pairingId)))
-                val code = j.getString("code")
-                val sender = j.optString("sender")
-                val owner = j.optString("owner").ifBlank { null }
-                Inbox.add(InboxItem(m.docId, code, sender, owner, System.currentTimeMillis()))
-                Notifier.received(ctx, owner, code, Inbox.TTL_MS)
-            } catch (e: Exception) {
-                Log.w("RecipientSync", "could not decrypt ${m.docId}", e)
-            } finally {
-                runCatching { Cloud.deleteMessage(m.docId) }
-            }
-        }
+        for (m in Cloud.pendingMessages()) handle(ctx, m)
     }
 }

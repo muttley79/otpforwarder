@@ -7,6 +7,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -196,6 +197,19 @@ object Cloud {
         return db.collection("otp_messages").whereEqualTo("recipientUid", u).get(Source.SERVER).await().documents.map {
             Incoming(it.id, it.getString("pairingId") ?: "", it.getString("ciphertext") ?: "")
         }
+    }
+
+    /** Live feed of new messages addressed to this user. Existing waiting messages arrive first, so nothing is missed. */
+    fun incomingFlow(): Flow<Incoming> = callbackFlow {
+        val u = uid
+        val reg = if (u == null) null else db.collection("otp_messages").whereEqualTo("recipientUid", u)
+            .addSnapshotListener { s, _ ->
+                s?.documentChanges?.filter { it.type == DocumentChange.Type.ADDED }?.forEach { c ->
+                    val d = c.document
+                    trySend(Incoming(d.id, d.getString("pairingId") ?: "", d.getString("ciphertext") ?: ""))
+                }
+            }
+        awaitClose { reg?.remove() }
     }
 
     suspend fun deleteMessage(docId: String) { db.collection("otp_messages").document(docId).delete().await() }

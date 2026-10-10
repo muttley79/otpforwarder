@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import android.provider.ContactsContract
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material3.AlertDialog
@@ -207,7 +209,7 @@ fun OwnerTab() {
                 Row(verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            r.sender?.let { Pill("From $it") }
+                            r.sender?.let { Pill("From ${r.label ?: it}") }
                             r.textContains?.let { Pill("Message has “$it”") }
                         }
                         val names = r.pairingIds.mapNotNull { nameById[it] }
@@ -335,8 +337,8 @@ fun OwnerTab() {
             AddRuleForm(
                 people = people,
                 onCancel = { showRuleSheet = false },
-                onSave = { sender, text, ids ->
-                    PolicyStore.addRule(ctx, sender, text, ids)
+                onSave = { sender, label, text, ids ->
+                    PolicyStore.addRule(ctx, sender, label, text, ids)
                     rules = PolicyStore.rules(ctx)
                     showRuleSheet = false
                 },
@@ -346,9 +348,21 @@ fun OwnerTab() {
 }
 
 @Composable
-private fun AddRuleForm(people: List<Pairing>, onCancel: () -> Unit, onSave: (String?, String?, Set<String>) -> Unit) {
+private fun AddRuleForm(people: List<Pairing>, onCancel: () -> Unit, onSave: (String?, String?, String?, Set<String>) -> Unit) {
+    val ctx = LocalContext.current
     var sender by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf<String?>(null) }
     var text by remember { mutableStateOf("") }
+    // Android's own contact picker hands back only the one number the person taps, so no contacts permission is needed.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val uri = r.data?.data
+        if (uri != null) {
+            val cols = arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+            ctx.contentResolver.query(uri, cols, null, null, null)?.use { c ->
+                if (c.moveToFirst()) { sender = c.getString(0).orEmpty(); label = c.getString(1) }
+            }
+        }
+    }
     var chosen by remember { mutableStateOf(setOf<String>()) }
     val valid = (sender.isNotBlank() || text.isNotBlank()) && chosen.isNotEmpty()
 
@@ -362,9 +376,17 @@ private fun AddRuleForm(people: List<Pairing>, onCancel: () -> Unit, onSave: (St
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
-            sender, { sender = it }, label = { Text("From this sender") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-            supportingText = { Text("The name or number the message comes from, for example Clinic.") },
+            sender, { sender = it; label = null }, label = { Text("From this sender") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            supportingText = {
+                Text(
+                    if (label != null) "$label. A phone number matches in any format, with or without the country code."
+                    else "A sender name such as Clinic must match exactly. A phone number matches in any format."
+                )
+            },
         )
+        OutlinedButton(onClick = { picker.launch(Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }) {
+            Icon(Icons.Outlined.Person, null, Modifier.size(18.dp)); Spacer(Modifier.size(8.dp)); Text("Choose from contacts")
+        }
         OutlinedTextField(
             text, { text = it }, label = { Text("Message contains") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
             supportingText = { Text("A word or phrase in the message text. Capital letters don't matter.") },
@@ -382,7 +404,7 @@ private fun AddRuleForm(people: List<Pairing>, onCancel: () -> Unit, onSave: (St
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
             TextButton(onClick = onCancel) { Text("Cancel") }
-            Button(enabled = valid, onClick = { onSave(sender.ifBlank { null }, text.ifBlank { null }, chosen) }) { Text("Save rule") }
+            Button(enabled = valid, onClick = { onSave(sender.ifBlank { null }, label, text.ifBlank { null }, chosen) }) { Text("Save rule") }
         }
         Spacer(Modifier.height(8.dp))
     }

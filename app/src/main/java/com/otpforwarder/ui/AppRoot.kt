@@ -53,7 +53,14 @@ import kotlinx.coroutines.launch
 private data class Dest(val label: String, val icon: ImageVector)
 
 @Composable
-fun AppRoot(pendingInvite: String?, onInviteHandled: () -> Unit, themeMode: ThemeMode, onThemeMode: (ThemeMode) -> Unit) {
+fun AppRoot(
+    pendingInvite: String?,
+    onInviteHandled: () -> Unit,
+    requestedTab: Int?,
+    onTabHandled: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeMode: (ThemeMode) -> Unit,
+) {
     val ctx = LocalContext.current
     if (!Cloud.configured(ctx)) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -68,8 +75,9 @@ fun AppRoot(pendingInvite: String?, onInviteHandled: () -> Unit, themeMode: Them
 
     LaunchedEffect(user?.uid, rev) { runCatching { Cloud.registerDevice(ctx) } }
 
-    var tab by remember { mutableIntStateOf(if (pendingInvite != null) 1 else 0) }
+    var tab by remember { mutableIntStateOf(requestedTab ?: if (pendingInvite != null) 1 else 0) }
     LaunchedEffect(pendingInvite) { if (pendingInvite != null) tab = 1 }
+    LaunchedEffect(requestedTab) { if (requestedTab != null) { tab = requestedTab; onTabHandled() } }
     val dests = listOf(Dest("Sharing", Icons.Outlined.Share), Dest("Inbox", Icons.Outlined.Inbox), Dest("Account", Icons.Outlined.Person))
 
     Scaffold(
