@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The lamp: a lit core inside a thin ring of light. Kept inside the 66dp adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,54m-27,0a27,27 0 1,1 54,0a27,27 0 1,1 -54,0"
+        android:strokeAlpha="0.65"
+        android:strokeColor="#F2A72B"
+        android:strokeWidth="3" />
+    <path
+        android:fillColor="#F2A72B"
+        android:pathData="M54,54m-15,0a15,15 0 1,1 30,0a15,15 0 1,1 -30,0" />
+</vector>

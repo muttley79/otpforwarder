@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window behind Compose, so there is no white flash when the splash hands over. -->
+    <style name="Theme.OtpForwarder" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/mist</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Launch screen: pine, with the lamp lighting up. -->
+    <style name="Theme.OtpForwarder.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/pine</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_lamp</item>
+        <item name="windowSplashScreenAnimationDuration">700</item>
+        <item name="postSplashScreenTheme">@style/Theme.OtpForwarder</item>
+    </style>
+</resources>

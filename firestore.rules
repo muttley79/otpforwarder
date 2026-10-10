@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function pairing(id) { return get(/databases/$(db)/documents/otp_pairings/$(id)).data; }
+    // Owner may only write for an active pairing they own, addressed to its recipient.
+    function ownerMaySend(d) {
+      return signedIn()
+        && d.ownerUid == me()
+        && pairing(d.pairingId).ownerUid == me()
+        && pairing(d.pairingId).recipientUid == d.recipientUid
+        && pairing(d.pairingId).status == 'active'
+        && d.createdAt == request.time;
+    }
+
+    match /otp_users/{uid} {
+      allow read, write: if signedIn() && me() == uid;
+    }
+
+    // The document id is an unguessable single-use token: clients can `get` it but never list.
+    match /otp_invites/{id} {
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == me()
+        && request.resource.data.redeemedBy == null
+        && request.resource.data.expiresAt <= request.time + duration.value(11, 'm');
+      allow update: if signedIn()
+        && resource.data.redeemedBy == null
+        && resource.data.expiresAt > request.time
+        && resource.data.ownerUid != me()
+        && request.resource.data.redeemedBy == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'recipientName']);
+      allow delete: if signedIn() && resource.data.ownerUid == me();
+    }
+
+    match /otp_pairings/{id} {
+      allow read: if signedIn() && (resource.data.ownerUid == me() || resource.data.recipientUid == me());
+      // Created by the recipient, in the same batch that marks the invite redeemed by them.
+      allow create: if signedIn()
+        && request.resource.data.recipientUid == me()
+        && request.resource.data.status == 'active'
+        && getAfter(/databases/$(db)/documents/otp_invites/$(id)).data.redeemedBy == me()
+        && getAfter(/databases/$(db)/documents/otp_invites/$(id)).data.ownerUid == request.resource.data.ownerUid;
+      // Either party can revoke at any time; nothing else may change.
+      allow update: if signedIn()
+        && (resource.data.ownerUid == me() || resource.data.recipientUid == me())
+        && resource.data.status == 'active'
+        && request.resource.data.status == 'revoked'
+        && request.resource.data.revokedBy == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'revokedBy', 'revokedAt']);
+      allow delete: if false;
+    }
+
+    match /otp_messages/{id} {
+      allow create: if ownerMaySend(request.resource.data);
+      allow read, delete: if signedIn() && resource.data.recipientUid == me();
+      allow update: if false;
+    }
+
+    match /otp_audit/{id} {
+      allow create: if ownerMaySend(request.resource.data);
+      allow read: if signedIn() && (resource.data.ownerUid == me() || resource.data.recipientUid == me());
+      allow update, delete: if false;
+    }
+  }
+}

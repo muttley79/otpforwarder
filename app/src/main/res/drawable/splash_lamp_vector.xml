@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Final (lit) state. The animation plays from dark to this; older Android shows it as a still. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:name="halo_group"
+        android:pivotX="54"
+        android:pivotY="54">
+        <path
+            android:name="halo"
+            android:fillColor="#00000000"
+            android:pathData="M54,54m-32,0a32,32 0 1,1 64,0a32,32 0 1,1 -64,0"
+            android:strokeAlpha="0.65"
+            android:strokeColor="#F2A72B"
+            android:strokeWidth="2.5" />
+    </group>
+    <path
+        android:name="core"
+        android:fillColor="#F2A72B"
+        android:pathData="M54,54m-15,0a15,15 0 1,1 30,0a15,15 0 1,1 -30,0" />
+</vector>
