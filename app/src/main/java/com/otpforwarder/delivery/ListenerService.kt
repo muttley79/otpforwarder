@@ -42,16 +42,24 @@ class ListenerService : Service() {
             return START_NOT_STICKY
         }
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Listening for codes", NotificationManager.IMPORTANCE_LOW))
+        // Android only lets a channel's importance be set when it is created, so the quiet one has a new id.
+        nm.deleteNotificationChannel(OLD_CHANNEL)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, "Listening for codes (quiet)", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "A silent reminder that the app is listening for shared codes. You can turn this off; the app keeps listening."
+                setShowBadge(false)
+            }
+        )
         val piFlags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         val open = PendingIntent.getActivity(this, 2, Intent(this, MainActivity::class.java), piFlags)
         val stop = PendingIntent.getService(this, 3, Intent(this, ListenerService::class.java).setAction(ACTION_STOP), piFlags)
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentTitle("Listening for shared codes")
-            .setContentText("New codes shared with you appear here automatically.")
+            .setCategory(Notification.CATEGORY_SERVICE)
             .setContentIntent(open)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .build()
         startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -69,7 +77,8 @@ class ListenerService : Service() {
     }
 
     companion object {
-        private const val CHANNEL = "listening"
+        const val CHANNEL = "listening_quiet"
+        private const val OLD_CHANNEL = "listening"
         private const val NOTIF_ID = 2
         const val ACTION_STOP = "com.otpforwarder.STOP_LISTENING"
 

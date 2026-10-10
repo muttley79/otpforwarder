@@ -136,6 +136,17 @@ fun RecipientTab(pendingInvite: String?, onInviteHandled: () -> Unit) {
                     })
                 }
                 if (listening) {
+                    Text(
+                        "Android requires a notification while the app listens. It is silent, and you can hide it without stopping the listening.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = {
+                        ctx.startActivity(
+                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                .putExtra(Settings.EXTRA_CHANNEL_ID, ListenerService.CHANNEL)
+                        )
+                    }) { Text("Hide the listening notification") }
                     TextButton(onClick = { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }) {
                         Text("Keep it reliable: battery settings")
                     }
