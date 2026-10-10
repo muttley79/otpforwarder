@@ -15,6 +15,10 @@ Consent is the point. Nothing is shared until the owner opts in, nobody receives
 - **Owner phone** captures incoming SMS, decides who (if anyone) may receive each code, encrypts it for that person, and uploads the ciphertext.
 - **Recipient phone** receives it, decrypts it locally, and shows it large and grouped (`482 913`) with a countdown. Codes live in memory only and disappear after 5 minutes.
 - **Routing rules** decide who gets what. A rule matches the **sender**, the **message text**, or both, and names the people who receive it. For example: *From `Clinic` goes to Son 1*; *message contains `account` goes to Son 2*.
+  - A sender **name** must match exactly (capital letters don't matter). A sender **phone number** matches in any format, so `052-123-4567`, `0521234567` and `+972521234567` are the same sender.
+  - **Choose from contacts** fills in a contact's number using Android's own picker, so the app never gets permission to read your contacts.
+  - A word you put in "Message contains" also counts as the code keyword, so a rule on a word like "trial" works without the message saying "code".
+- **Codes arrive on their own.** The recipient app can keep a live connection (switch: *Get new codes automatically*), so a new code appears and notifies without anyone tapping anything. The notification opens the Inbox and has a **Copy code** button.
 - **Everything is visible.** Every shared code is logged (time, sender, recipient, never the code itself), and the log cannot be turned off.
 
 ## Consent and safety by design
@@ -106,7 +110,8 @@ docs/                threat model, privacy, Firebase guide, screenshots
 ## Status and limits
 
 - Sideload build: it uses the SMS permission, which Google Play restricts to default SMS apps. Capture sits behind the `OtpSource` interface so a Play-compliant source can be added later.
-- Instant push needs the Cloud Function deployed (Firebase Blaze plan). Without it, recipients tap **Check now**.
+- Instant delivery works without any paid plan through the recipient's live listener (it shows a "Listening for shared codes" notification and uses some battery). A Cloud Function push is an optional alternative that needs the Firebase Blaze plan.
+- A sideloaded APK can be rejected by Google Play Protect on some phones. Installing over `adb` or from the Play Store avoids that.
 - Not yet tested: the optional SMS-relay backup and the Firestore rules tests.
 - Reinstalling or changing phones starts a fresh identity and keys, so people pair again.
 - Display names are chosen by users and are not verified. Hand invitations over in person or through a channel you trust.

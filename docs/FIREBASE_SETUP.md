@@ -45,11 +45,11 @@ The rules in `firestore.rules` are what keep strangers out. Publish them either 
 
 No composite indexes are needed.
 
-## 6. Push notifications and cleanup (Cloud Functions)
+## 6. Instant delivery
 
-Without this step everything works but recipients must tap **Check now** to see a new code. With it, a push wakes their phone.
+**You can skip this step.** By default the recipient app keeps a live connection to Firestore (the *Get new codes automatically* switch in the Inbox, on by default after accepting an invitation), so new codes appear and notify without any server-side code and without a paid plan. It shows a "Listening for shared codes" notification and uses some battery.
 
-Functions need the **Blaze (pay-as-you-go)** plan. Typical usage of this app is far inside the free quota.
+The optional alternative below uses a push instead. It needs the **Blaze (pay-as-you-go)** plan, which requires a billing account. Typical usage of this app is far inside the free quota, but you pay nothing only if you stay inside it. It also deletes expired messages and invites on a schedule.
 
 ```bash
 cd functions
