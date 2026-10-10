@@ -113,4 +113,6 @@ docs/                threat model, privacy, Firebase guide, screenshots
 
 ## License
 
-Not yet chosen.
+Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+
+The license covers the code, not how it is used: please keep the consent safeguards (opt-in, visible notification, accept-to-join, audit log) intact in any fork.
